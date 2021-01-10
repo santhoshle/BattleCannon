@@ -27,11 +27,12 @@ public class CFMainMenu extends ApplicationAdapter {
 	Rectangle playerBorder, aiBorder;
 
 	int cannonX, shieldX, aiCannonX, aiShieldX, state;
-	boolean destroyBullet, destroyAIBullet;
+	boolean destroyBullet, destroyAIBullet, showHealth, showStatus;
 
 	float bulletY, aiBulletY, velocity;
 	BitmapFont font, title;
 	GlyphLayout layout = new GlyphLayout();
+	String result = "";
 
 	@Override
 	public void create() {
@@ -86,7 +87,7 @@ public class CFMainMenu extends ApplicationAdapter {
 		/** Template remove from **/
 		/** Template remove end **/
 
-		if (state == Constants.STATE_START_ACTION) {
+		if (showHealth) {
 			layout.setText(font, "You : " + playerHealth, Color.RED, screenWidth, Align.left, true);
 			font.draw(screen, layout, 0, screenHeight * 0.2f);
 
@@ -94,42 +95,44 @@ public class CFMainMenu extends ApplicationAdapter {
 			font.draw(screen, layout, 0, screenHeight * 0.8f);
 		}
 
-		if (state <= Constants.STATE_PLACE_CANNON) {
-			if (aiHealth == 0 && playerHealth == 0) {
-				layout.setText(font, "It is a draw", Color.RED, screenWidth, Align.center, true);
-				font.draw(screen, layout, 0, screenHeight * 0.7f);
-				initializeGame();
-			} else if (aiHealth == 0) {
-				layout.setText(font, "You Won", Color.RED, screenWidth, Align.center, true);
-				font.draw(screen, layout, 0, screenHeight * 0.7f);
-				initializeGame();
-			} else if (playerHealth == 0) {
-				layout.setText(font, "You Lose", Color.RED, screenWidth, Align.center, true);
-				font.draw(screen, layout, 0, screenHeight * 0.7f);
-				initializeGame();
-			}
-		}
-
 		if (state == Constants.STATE_PLACE_AI) {
-			System.out.println("placed ai");
 			aiCannonX = getRandomNumberInRange();
 			aiShieldX = getRandomNumberInRange();
 			state = 4;
+		}
+
+		if (state <= Constants.STATE_PLACE_CANNON) {
+			if (aiHealth == 0 && playerHealth == 0) {
+				result = "It is a draw";
+			} else if (aiHealth == 0) {
+				result = "You Won";
+			} else if (playerHealth == 0) {
+				result = "You Lose";
+			}
+
+			if (aiHealth == 0 || playerHealth == 0) {
+				initializeGame();
+				showStatus = true;
+			}
 		}
 
 		if (state == Constants.STATE_START_GAME) {
 			layout.setText(title, "Battle Cannon", Color.BROWN, screenWidth, Align.center, true);
 			title.draw(screen, layout, 0, screenHeight * 0.75f);
 
-            layout.setText(font, "Click to start the Game", Color.RED, screenWidth, Align.center, true);
+			layout.setText(font, "Click to start the Game", Color.RED, screenWidth, Align.center, true);
 			font.draw(screen, layout, 0, screenHeight * 0.5f);
+
+			if (showStatus) {
+				layout.setText(font, result, Color.RED, screenWidth, Align.center, true);
+				font.draw(screen, layout, 0, screenHeight * 0.55f);
+			}
 		}
 
 		for (int i = 0; i < Constants.TOTAL_TILE; i++) {
 			screen.draw(mount, bx, by, bw, bh);
 
 			if (state >= Constants.STATE_GAP) {
-				System.out.println("intial");
 				screen.draw(mount, ox, oy, ow, oh);
 				if (aiCannonX == i) {
 					screen.draw(aiCannon, ox, oy, ow, oh);
@@ -164,13 +167,13 @@ public class CFMainMenu extends ApplicationAdapter {
 			bx += bw;
 			ox += bw;
 		}
-		
+
 		if (state == Constants.STATE_PLACE_SHIELD) {
-            layout.setText(font, "Place the shield in squared area", Color.RED, screenWidth, Align.center, true);
-			font.draw(screen, layout, 0, screenHeight * 0.2f);
+			layout.setText(font, "Place the shield in squared area", Color.RED, screenWidth, Align.center, true);
+			font.draw(screen, layout, 0, screenHeight * 0.3f);
 		} else if (state == Constants.STATE_PLACE_CANNON) {
-            layout.setText(font, "Place the cannon in squared area", Color.RED, screenWidth, Align.center, true);
-			font.draw(screen, layout, 0, screenHeight * 0.2f);			
+			layout.setText(font, "Place the cannon in squared area", Color.RED, screenWidth, Align.center, true);
+			font.draw(screen, layout, 0, screenHeight * 0.3f);
 		}
 
 		if (Gdx.input.justTouched()) {
@@ -180,42 +183,36 @@ public class CFMainMenu extends ApplicationAdapter {
 			} else if (state == Constants.STATE_PLACE_CANNON) {
 				cannonX = (int) (Gdx.input.getX() / blockWeight);
 				state = 2;
+				showHealth = true;
 			} else if (state == Constants.STATE_START_GAME) {
-				state = 1;
+				state = Constants.STATE_PLACE_CANNON;
+				showStatus = true;
 			}
 		}
 
 		if (state == Constants.STATE_START_ACTION) {
 			if (!destroyBullet) {
 				if (Intersector.overlaps(aiShieldCollider, bulletCollider)) {
-					System.out.println("Destroy bullet code");
 					destroyBullet = true;
 				}
 				if (Intersector.overlaps(bulletCollider, aiBorder)) {
 					aiHealth -= Constants.SINGLE_SHOT_DAMAGE;
 					destroyBullet = true;
-					System.out.println("Hit player");
 				}
 			}
 
 			if (!destroyAIBullet) {
 				if (Intersector.overlaps(shieldCollider, aiBulletCollider)) {
 					destroyAIBullet = true;
-					System.out.println("Destroy ai bullet code");
 				}
-
 				if (Intersector.overlaps(aiBulletCollider, playerBorder)) {
 					playerHealth -= Constants.SINGLE_SHOT_DAMAGE;
 					destroyAIBullet = true;
-					System.out.println("Hit ai");
 				}
 			}
 
 			if (destroyBullet && destroyAIBullet) {
-				System.out.println("aiHealth" + aiHealth);
-				System.out.println("playerHealth " + playerHealth);
 				initializeTurn();
-				System.out.println("state " + state);
 			}
 		}
 
@@ -253,16 +250,9 @@ public class CFMainMenu extends ApplicationAdapter {
 	private void initializeGame() {
 		initializeTurn();
 		state = 0;
+		showHealth = false;
 		playerHealth = 100;
 		aiHealth = 100;
-	}
-
-	private void delay() {
-		try {
-			Thread.sleep(1000);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
 	}
 
 }
