@@ -52,6 +52,12 @@ dependencies {
   }
 }
 
+// The GWT compile also writes the preloader assets into build/dist/assets, which Gradle doesn't know about, so a build
+// restored from the cache would be missing them. Always compile for real.
+tasks.named('gwtCompile') {
+  outputs.cacheIf { false }
+}
+
 // The temporary war/ folder causes problems if stale files remain in it.
 clean.delete += [file('war')]
 

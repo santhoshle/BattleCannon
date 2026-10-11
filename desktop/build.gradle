@@ -1,5 +1,9 @@
+import io.github.fourlastor.construo.Target
+
 plugins {
   id 'application'
+  // Packages the game with its own Java runtime for Windows, macOS and Linux.
+  id 'io.github.fourlastor.construo' version '2.2.2'
 }
 
 sourceSets.main.resources.srcDirs += [ rootProject.file('assets').path ]
@@ -46,13 +50,76 @@ jar {
   duplicatesStrategy = DuplicatesStrategy.EXCLUDE
   dependsOn configurations.runtimeClasspath
   from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
-  exclude('META-INF/INDEX.LIST', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA')
+  // module-info files from the dependencies mean nothing in a classpath JAR, and they break jdeps (used by Construo).
+  exclude('META-INF/INDEX.LIST', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', '**/module-info.class')
   dependencies {
     exclude('META-INF/INDEX.LIST', 'META-INF/maven/**')
   }
   manifest {
     attributes 'Main-Class': application.mainClass, 'Enable-Native-Access': 'ALL-UNNAMED',
       'Multi-Release': 'true', 'Add-Exports': 'java.base/jdk.internal.misc'
+  }
+}
+
+// Tools that make the itch.io page media. They aren't part of the game or any build of it.
+sourceSets {
+  capture {
+    compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+    runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
+  }
+}
+compileCaptureJava.options.release.set(17)
+
+// Plays a scripted match and saves screenshots, video frames, the cover art and the icon.
+tasks.register('captureMedia', JavaExec) {
+  group = 'itch'
+  description = 'Records screenshots, gameplay frames, cover art and icon for the itch.io page.'
+  classpath = sourceSets.capture.runtimeClasspath
+  mainClass = 'com.solaraslight.MediaCapture'
+  workingDir = rootProject.file('assets')
+  jvmArgs desktopJvmArgs
+  args layout.buildDirectory.dir('capture/stills').get().asFile.absolutePath,
+    layout.buildDirectory.dir('capture/frames').get().asFile.absolutePath
+}
+
+// Self-contained builds that bundle a trimmed Java runtime, so players don't need Java installed. Each target has a
+// package task (packageWinX64, packageLinuxX64, packageMacM1, packageMacX64) that writes a ZIP to build/construo/dist.
+// Construo cross-builds from any OS; the JDKs below are downloaded on first use.
+def temurin = 'https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.11%2B9/OpenJDK17U-jdk_'
+construo {
+  name.set('CanyonSalvo')
+  humanName.set(appName)
+  roast {
+    vmArgs.addAll('--enable-native-access=ALL-UNNAMED', '--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED')
+  }
+  targets.configure {
+    create('winX64', Target.Windows) {
+      architecture.set(Target.Architecture.X86_64)
+      jdkUrl.set(temurin + 'x64_windows_hotspot_17.0.11_9.zip')
+      icon.set(project.file('src/main/resources/icons/icon-256.png'))
+    }
+    create('linuxX64', Target.Linux) {
+      architecture.set(Target.Architecture.X86_64)
+      jdkUrl.set(temurin + 'x64_linux_hotspot_17.0.11_9.tar.gz')
+    }
+    create('macM1', Target.MacOs) {
+      architecture.set(Target.Architecture.AARCH64)
+      jdkUrl.set(temurin + 'aarch64_mac_hotspot_17.0.11_9.tar.gz')
+      identifier.set('com.solaraslight.canyonsalvo')
+      buildNumber.set(projectVersion)
+      versionNumber.set(projectVersion)
+      copyright.set('© 2021-2026 Solaras Light')
+      categoryName.set('public.app-category.strategy-games')
+    }
+    create('macX64', Target.MacOs) {
+      architecture.set(Target.Architecture.X86_64)
+      jdkUrl.set(temurin + 'x64_mac_hotspot_17.0.11_9.tar.gz')
+      identifier.set('com.solaraslight.canyonsalvo')
+      buildNumber.set(projectVersion)
+      versionNumber.set(projectVersion)
+      copyright.set('© 2021-2026 Solaras Light')
+      categoryName.set('public.app-category.strategy-games')
+    }
   }
 }
 

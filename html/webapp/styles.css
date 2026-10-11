@@ -1,10 +1,14 @@
 canvas {
+    /* Block, not inline, so no baseline gap is added below it (see body). */
+    display: block;
     cursor: default;
     outline: none;
 }
 
 body {
     background-color: #222222;
+    /* No margin, so the canvas fits an embed frame of exactly its size (e.g. itch.io's) without scrollbars. */
+    margin: 0;
 }
 
 .superdev {

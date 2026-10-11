@@ -7,6 +7,9 @@ enemy will strike, and don't be predictable: the enemy learns your habits.
 Runs on **desktop** (Windows, macOS, Linux) and in the **browser**, with an **Android** build as well.
 Licensed under the [Apache License 2.0](#license).
 
+**▶ Play it in your browser, or download it for Windows, macOS or Linux, at
+[solaraslight.itch.io/canyon-salvo](https://solaraslight.itch.io/canyon-salvo).**
+
 ## How to play
 
 1. Tap a launch pad to place your **missile launcher**. Your missile flies straight up that column.
@@ -46,6 +49,8 @@ use `gradlew.bat` instead of `./gradlew`.
 | Web: live development | `./gradlew html:superDev` | Starts a dev server on port 8080 that recompiles on browser refresh |
 | Android: debug APK | `./gradlew android:assembleDebug` | `android/build/outputs/apk/debug/` |
 | Android: launch on device | `./gradlew android:installDebug android:run` | Installs and starts the app |
+| Desktop: self-contained builds | `./gradlew desktop:packageWinX64` (also `packageMacM1`, `packageMacX64`, `packageLinuxX64`) | `desktop/build/construo/dist/`, with a bundled Java runtime |
+| itch.io uploads and page media | `./gradlew itchBuilds`, `./gradlew itchMedia` | `itch/builds/`, `itch/media/`. Only available where the local `itch/` folder exists; it isn't in git |
 
 Run the JAR with `java -jar CanyonSalvo-1.0.0.jar`.
 

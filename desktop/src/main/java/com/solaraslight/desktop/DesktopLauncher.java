@@ -27,6 +27,7 @@ public class DesktopLauncher {
 		config.setWindowedMode(480, 600);
 		// The game reads the screen size once at startup, so the window must not be resized.
 		config.setResizable(false);
+		config.setWindowIcon("icons/icon-128.png", "icons/icon-64.png", "icons/icon-32.png", "icons/icon-16.png");
 		config.useVsync(true);
 		config.setForegroundFPS(Lwjgl3ApplicationConfiguration.getDisplayMode().refreshRate + 1);
 		new Lwjgl3Application(new CanyonSalvo(), config);

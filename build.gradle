@@ -43,3 +43,8 @@ subprojects {
 }
 
 eclipse.project.name = 'CanyonSalvo-parent'
+
+// itch.io tasks (itchMedia, itchBuilds). The itch/ folder isn't in git, so they only exist where it does.
+if (file('itch/itch.gradle').exists()) {
+  apply from: 'itch/itch.gradle'
+}
