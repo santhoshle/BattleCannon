@@ -1,0 +1,20 @@
+Fonts used in Canyon Salvo
+==========================
+
+The game's text is drawn with bitmap fonts (title_font.fnt/.png and ui_font.fnt/.png) that were
+rendered from the fonts below. They are derivative works distributed under each font's own license,
+not under the game's license.
+
+Title text: Luckiest Guy
+  Copyright (c) 2010 by Brian J. Bonislawsky DBA Astigmatic (AOETI).
+  "Luckiest Guy" is a trademark of Astigmatic (AOETI).
+  Licensed under the Apache License, Version 2.0 - see LuckiestGuy-LICENSE.txt
+  Source: https://github.com/google/fonts/tree/main/apache/luckiestguy
+  Converted to a bitmap font with a black outline.
+
+Interface text: Russo One
+  Copyright (c) 2011-2012, Jovanny Lemonad (jovanny.ru), with Reserved Font Name "Russo".
+  Licensed under the SIL Open Font License, Version 1.1 - see RussoOne-OFL.txt
+  Source: https://github.com/google/fonts/tree/main/ofl/russoone
+  Converted to a bitmap font with a black outline. As a Modified Version under the OFL, the
+  converted font is distributed under the OFL and does not use the Reserved Font Name.

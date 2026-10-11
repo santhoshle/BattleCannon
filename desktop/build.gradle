@@ -1,42 +1,65 @@
-apply plugin: "java"
-apply plugin: 'eclipse'
-
-sourceCompatibility = 1.7
-sourceSets.main.java.srcDirs = [ "src/" ]
-sourceSets.main.resources.srcDirs = ["../android/assets"]
-
-project.ext.mainClassName = "com.santhoshle.desktop.DesktopLauncher"
-project.ext.assetsDir = new File("../android/assets")
-
-task run(dependsOn: classes, type: JavaExec) {
-    main = project.mainClassName
-    classpath = sourceSets.main.runtimeClasspath
-    standardInput = System.in
-    workingDir = project.assetsDir
-    ignoreExitValue = true
+plugins {
+  id 'application'
 }
 
-task debug(dependsOn: classes, type: JavaExec) {
-    main = project.mainClassName
-    classpath = sourceSets.main.runtimeClasspath
-    standardInput = System.in
-    workingDir = project.assetsDir
-    ignoreExitValue = true
-    debug = true
+sourceSets.main.resources.srcDirs += [ rootProject.file('assets').path ]
+application.mainClass = 'com.solaraslight.desktop.DesktopLauncher'
+application.applicationName = appName
+eclipse.project.name = appName + '-desktop'
+java.sourceCompatibility = 17
+java.targetCompatibility = 17
+compileJava.options.release.set(17)
+
+dependencies {
+  implementation project(':core')
+  implementation "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
+  implementation "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
+
+  // Use at least LWJGL $lwjgl3Version, which avoids native-access warnings on recent JDKs.
+  constraints {
+    implementation "org.lwjgl:lwjgl:$lwjgl3Version"
+    implementation "org.lwjgl:lwjgl-glfw:$lwjgl3Version"
+    implementation "org.lwjgl:lwjgl-jemalloc:$lwjgl3Version"
+    implementation "org.lwjgl:lwjgl-openal:$lwjgl3Version"
+    implementation "org.lwjgl:lwjgl-opengl:$lwjgl3Version"
+    implementation "org.lwjgl:lwjgl-stb:$lwjgl3Version"
+  }
 }
 
-task dist(type: Jar) {
-    manifest {
-        attributes 'Main-Class': project.mainClassName
-    }
-    dependsOn configurations.runtimeClasspath
-    from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
-    }
-    with jar
+def os = System.properties['os.name'].toLowerCase(Locale.ROOT)
+def desktopJvmArgs = ['--enable-native-access=ALL-UNNAMED', '--add-exports=java.base/jdk.internal.misc=ALL-UNNAMED']
+if (JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_22)) {
+  desktopJvmArgs += '--sun-misc-unsafe-memory-access=deny'
 }
 
+run {
+  workingDir = rootProject.file('assets')
+  jvmArgs += desktopJvmArgs
+  // macOS requires GLFW to run on the first thread.
+  if (os.contains('mac')) jvmArgs += '-XstartOnFirstThread'
+}
+application.applicationDefaultJvmArgs += desktopJvmArgs
 
-dist.dependsOn classes
+// Builds a single runnable JAR with all dependencies at desktop/build/libs.
+jar {
+  archiveFileName.set("CanyonSalvo-${projectVersion}.jar")
+  duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+  dependsOn configurations.runtimeClasspath
+  from { configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) } }
+  exclude('META-INF/INDEX.LIST', 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA')
+  dependencies {
+    exclude('META-INF/INDEX.LIST', 'META-INF/maven/**')
+  }
+  manifest {
+    attributes 'Main-Class': application.mainClass, 'Enable-Native-Access': 'ALL-UNNAMED',
+      'Multi-Release': 'true', 'Add-Exports': 'java.base/jdk.internal.misc'
+  }
+}
 
-eclipse.project.name = appName + "-desktop"
+// Kept for compatibility with the old gdx-setup workflow.
+tasks.register('dist') {
+  dependsOn 'jar'
+}
+
+startScripts.dependsOn(':desktop:jar')
+startScripts.classpath = project.tasks.jar.outputs.files

@@ -1,92 +1,97 @@
+apply plugin: 'com.android.application'
+
 android {
-    buildToolsVersion "29.0.2"
-    compileSdkVersion 29
-    sourceSets {
-        main {
-            manifest.srcFile 'AndroidManifest.xml'
-            java.srcDirs = ['src']
-            aidl.srcDirs = ['src']
-            renderscript.srcDirs = ['src']
-            res.srcDirs = ['res']
-            assets.srcDirs = ['assets']
-            jniLibs.srcDirs = ['libs']
-        }
-
+  namespace = 'com.solaraslight'
+  compileSdk = 36
+  sourceSets {
+    main {
+      manifest.srcFile 'AndroidManifest.xml'
+      java.setSrcDirs(['src/main/java'])
+      res.setSrcDirs(['res'])
+      assets.setSrcDirs(['../assets'])
+      jniLibs.setSrcDirs(['libs'])
     }
-    packagingOptions {
-        exclude 'META-INF/robovm/ios/robovm.xml'
+  }
+  packaging {
+    resources {
+      excludes += ['META-INF/DEPENDENCIES.txt', 'META-INF/DEPENDENCIES', 'META-INF/dependencies.txt', '**/*.gwt.xml']
+      pickFirsts += ['META-INF/LICENSE.txt', 'META-INF/LICENSE', 'META-INF/license.txt', 'META-INF/LGPL2.1',
+                     'META-INF/NOTICE.txt', 'META-INF/NOTICE', 'META-INF/notice.txt']
     }
-    defaultConfig {
-        applicationId "com.santhoshle"
-        minSdkVersion 14
-        targetSdkVersion 29
-        versionCode 1
-        versionName "1.0"
+  }
+  defaultConfig {
+    applicationId = 'com.solaraslight'
+    minSdk = 21
+    targetSdk = 36
+    versionCode = 1
+    versionName = "$projectVersion"
+  }
+  compileOptions {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+    coreLibraryDesugaringEnabled = true
+  }
+  buildTypes {
+    release {
+      minifyEnabled = true
+      proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
     }
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
-        }
-    }
+  }
 }
 
+configurations { natives }
 
-// called every time gradle gets executed, takes the native dependencies of
-// the natives configuration, and extracts them to the proper libs/ folders
-// so they get packed with the APK.
-task copyAndroidNatives {
-    doFirst {
-        file("libs/armeabi/").mkdirs()
-        file("libs/armeabi-v7a/").mkdirs()
-        file("libs/arm64-v8a/").mkdirs()
-        file("libs/x86_64/").mkdirs()
-        file("libs/x86/").mkdirs()
-
-        configurations.natives.files.each { jar ->
-            def outputDir = null
-            if (jar.name.endsWith("natives-arm64-v8a.jar")) outputDir = file("libs/arm64-v8a")
-            if (jar.name.endsWith("natives-armeabi-v7a.jar")) outputDir = file("libs/armeabi-v7a")
-            if(jar.name.endsWith("natives-armeabi.jar")) outputDir = file("libs/armeabi")
-            if(jar.name.endsWith("natives-x86_64.jar")) outputDir = file("libs/x86_64")
-            if(jar.name.endsWith("natives-x86.jar")) outputDir = file("libs/x86")
-            if(outputDir != null) {
-                copy {
-                    from zipTree(jar)
-                    into outputDir
-                    include "*.so"
-                }
-            }
-        }
-    }
+dependencies {
+  coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:$androidDesugaringVersion"
+  implementation project(':core')
+  implementation "com.badlogicgames.gdx:gdx-backend-android:$gdxVersion"
+  natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-armeabi-v7a"
+  natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-arm64-v8a"
+  natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86"
+  natives "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-x86_64"
 }
 
-tasks.whenTaskAdded { packageTask ->
-    if (packageTask.name.contains("package")) {
-        packageTask.dependsOn 'copyAndroidNatives'
+// Extracts the native libraries from the natives configuration into libs/ so they get packed into the APK.
+tasks.register('copyAndroidNatives') {
+  doFirst {
+    file('libs/armeabi-v7a/').mkdirs()
+    file('libs/arm64-v8a/').mkdirs()
+    file('libs/x86_64/').mkdirs()
+    file('libs/x86/').mkdirs()
+
+    configurations.natives.copy().files.each { jar ->
+      def outputDir = null
+      if (jar.name.endsWith('natives-armeabi-v7a.jar')) outputDir = file('libs/armeabi-v7a')
+      if (jar.name.endsWith('natives-arm64-v8a.jar')) outputDir = file('libs/arm64-v8a')
+      if (jar.name.endsWith('natives-x86_64.jar')) outputDir = file('libs/x86_64')
+      if (jar.name.endsWith('natives-x86.jar')) outputDir = file('libs/x86')
+      if (outputDir != null) {
+        copy {
+          from zipTree(jar)
+          into outputDir
+          include '*.so'
+        }
+      }
     }
+  }
 }
 
-task run(type: Exec) {
-    def path
-    def localProperties = project.file("../local.properties")
-    if (localProperties.exists()) {
-        Properties properties = new Properties()
-        localProperties.withInputStream { instr ->
-            properties.load(instr)
-        }
-        def sdkDir = properties.getProperty('sdk.dir')
-        if (sdkDir) {
-            path = sdkDir
-        } else {
-            path = "$System.env.ANDROID_HOME"
-        }
-    } else {
-        path = "$System.env.ANDROID_HOME"
-    }
-
-    def adb = path + "/platform-tools/adb"
-    commandLine "$adb", 'shell', 'am', 'start', '-n', 'com.santhoshle/com.santhoshle.AndroidLauncher'
+tasks.matching { it.name.contains('merge') && it.name.contains('JniLibFolders') }.configureEach { packageTask ->
+  packageTask.dependsOn 'copyAndroidNatives'
 }
 
-eclipse.project.name = appName + "-android"
+// Launches the installed app on a connected device.
+tasks.register('run', Exec) {
+  def path
+  def localProperties = project.file('../local.properties')
+  if (localProperties.exists()) {
+    Properties properties = new Properties()
+    localProperties.withInputStream { instr -> properties.load(instr) }
+    path = properties.getProperty('sdk.dir') ?: "$System.env.ANDROID_HOME"
+  } else {
+    path = "$System.env.ANDROID_HOME"
+  }
+  commandLine "$path/platform-tools/adb", 'shell', 'am', 'start', '-n', 'com.solaraslight/com.solaraslight.AndroidLauncher'
+}
+
+eclipse.project.name = appName + '-android'

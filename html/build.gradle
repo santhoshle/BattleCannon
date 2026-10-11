@@ -1,84 +1,110 @@
-apply plugin: 'eclipse'
+buildscript {
+  repositories {
+    mavenCentral()
+    gradlePluginPortal()
+  }
+  dependencies {
+    classpath "org.docstr.gwt:org.docstr.gwt.gradle.plugin:$gwtPluginVersion"
+  }
+}
+apply plugin: 'org.docstr.gwt'
+apply plugin: 'war'
+
+// Where the deployable web build ends up, relative to html/.
+var outputPath = 'build/dist/'
 
 gwt {
-    gwtVersion='2.8.2' // Should match the gwt version used for building the gwt backend
-    maxHeapSize="1G" // Default 256m is not enough for gwt compiler. GWT is HUNGRY
-    minHeapSize="1G"
+  gwtVersion = "$gwtFrameworkVersion" // Must match the GWT version the libGDX GWT backend was built with.
+  maxHeapSize = '1G'
+  minHeapSize = '1G'
+  sourceLevel = '1.11'
 
-    src = files(file("src/")) // Needs to be in front of "modules" below.
-    modules 'com.santhoshle.GdxDefinition'
-    devModules 'com.santhoshle.GdxDefinitionSuperdev'
-    project.webAppDirName = 'webapp'
+  modules = ['com.solaraslight.GdxDefinition']
 
-    compiler {
-        strict = true;
-        disableCastChecking = true;
-    }
+  war = file(outputPath)
+  compiler.optimize = 9
+  compiler.strict = true
+
+  devMode {
+    port = 8080
+    startupUrl = 'http://127.0.0.1:8080/index.html'
+    modules = ['com.solaraslight.GdxDefinitionSuperdev']
+  }
+  superDev {
+    modules = ['com.solaraslight.GdxDefinitionSuperdev']
+  }
 }
 
-import org.wisepersist.gradle.plugins.gwt.GwtSuperDev
+gwt.extraSourceDirs.from(
+  file('src/main/java'),
+  files(project(':core').sourceSets.main.allJava.srcDirs),
+  files(sourceSets.main.output.resourcesDir)
+)
 
-def HttpFileServer server = null
-def httpFilePort = 8080
-
-task startHttpServer () {
-    dependsOn draftCompileGwt
-
-    String output = project.buildDir.path + "/gwt/draftOut"
-
-    doLast {
-        copy {
-            from "webapp"
-            into output
-        }
-
-        copy {
-            from "war"
-            into output
-        }
-
-        server = new SimpleHttpFileServerFactory().start(new File(output), httpFilePort)
-
-        println "Server started in directory " + server.getContentRoot() + ", http://localhost:" + server.getPort()
-    }
+dependencies {
+  implementation project(':core')
+  implementation "com.badlogicgames.gdx:gdx:$gdxVersion:sources"
+  implementation "com.badlogicgames.gdx:gdx-backend-gwt:$gdxVersion"
+  implementation "com.badlogicgames.gdx:gdx-backend-gwt:$gdxVersion:sources"
+  implementation "com.google.jsinterop:jsinterop-annotations:2.1.0:sources"
+  constraints {
+    implementation 'jakarta.servlet:jakarta.servlet-api:6.1.0'
+  }
 }
 
-task superDev (type: GwtSuperDev) {
-    dependsOn startHttpServer
-    doFirst {
-        gwt.modules = gwt.devModules
+// The temporary war/ folder causes problems if stale files remain in it.
+clean.delete += [file('war')]
+
+// GWT builds start from compileJava, so the output must be cleaned before anything is written to it.
+tasks.named('compileJava').get().dependsOn('clean')
+tasks.compileJava.dependsOn('processResources')
+
+// Builds the deployable web version into html/build/dist. Serve that folder with any HTTP server.
+tasks.register('dist') {
+  dependsOn(['build'])
+  doLast {
+    file(outputPath).mkdirs()
+    copy {
+      from('build/gwt/out') {
+        exclude '**/*.symbolMap'
+      }
+      into outputPath
     }
+    copy {
+      from('webapp') {
+        exclude 'index.html'
+        exclude 'refresh.png'
+      }
+      into outputPath
+    }
+    copy {
+      from('webapp') {
+        include 'index.html'
+        // Removes the SuperDev refresh button from the deployed page only.
+        filter { String line -> line.replaceAll('<a class="superdev" .+', '') }
+      }
+      into outputPath
+    }
+    copy {
+      from 'war'
+      into outputPath
+    }
+  }
 }
 
-
-task dist(dependsOn: [clean, compileGwt]) {
-    doLast {
-        file("build/dist").mkdirs()
-        copy {
-            from "build/gwt/out"
-            into "build/dist"
-        }
-        copy {
-            from "webapp"
-            into "build/dist"
-            }
-        copy {
-            from "war"
-            into "build/dist"
-        }
-    }
+tasks.register('distZip', Zip) {
+  dependsOn('dist')
+  from(outputPath)
+  archiveVersion = projectVersion
+  archiveBaseName.set('CanyonSalvo-web')
+  destinationDirectory.set(file('build'))
 }
 
-task addSource {
-    doLast {
-        sourceSets.main.compileClasspath += files(project(':core').sourceSets.main.allJava.srcDirs)
-    }
+// Recompiles in the browser on refresh while you edit sources. Use only during development.
+tasks.register('superDev') {
+  dependsOn('dist', 'gwtDevMode')
+  group('gwt')
 }
 
-tasks.compileGwt.dependsOn(addSource)
-tasks.draftCompileGwt.dependsOn(addSource)
-
-sourceCompatibility = 1.7
-sourceSets.main.java.srcDirs = [ "src/" ]
-
-eclipse.project.name = appName + "-html"
+sourceSets.main.resources.srcDirs += [ rootProject.file('assets').path ]
+eclipse.project.name = appName + '-html'
